@@ -2,6 +2,7 @@ package practice.programming.concurrency;
 
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /***
  * 
@@ -53,14 +54,17 @@ public class BuildingH2O {
 
     public static void main(String[] args) {
         final H2O obj = new H2O();
+        AtomicInteger counter = new AtomicInteger(1);
 
         Thread h = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    obj.hydrogen(new Runnable() {
+                    while(counter.addAndGet(1) < 10){
+                        obj.hydrogen(new Runnable() {
                         public void run() {System.out.print("H");};
-                    });
+                        });
+                    }
                 } catch (InterruptedException e) {
                 }
             }
@@ -69,9 +73,11 @@ public class BuildingH2O {
             @Override
             public void run() {
                 try {
-                    obj.oxygen(new Runnable() {
+                    while(counter.addAndGet(1) < 10){
+                        obj.oxygen(new Runnable() {
                         public void run() {System.out.print("O");};
-                    });
+                        });
+                    }
                 } catch (InterruptedException e) {
                 }
             }
@@ -88,58 +94,33 @@ public class BuildingH2O {
 //////////////////////////////////////////
 private static class H2O {
 
-    Semaphore o = new Semaphore(1);
-    Semaphore h = new Semaphore(1);
+    Semaphore sema_o = new Semaphore(0);
+    Semaphore sema_h = new Semaphore(2);
 
-    final CyclicBarrier barrier = new CyclicBarrier(2, new Runnable() {
-        @Override
-        public void run() 
-        { 
-            try 
-            {
-                hydrogen(new Runnable() {
-                @Override
-                public void run() {
-                    System.out.println("H");
-                };
-                });    
-            } catch (InterruptedException e) {
-
-            }
-        };
-    });
-
-
+    volatile int counter = 0;
     public H2O() {
         
     }
 
     public void hydrogen(Runnable releaseHydrogen) throws InterruptedException {
 		
-        h.acquire();
+        sema_h.acquire();
         // releaseHydrogen.run() outputs "H". Do not change or remove this line.
         releaseHydrogen.run();
+        counter++;
 
-        o.release();
-        try {
-            barrier.await();
-        } catch (Exception e) {
-        }
+        if(counter == 2)
+            sema_o.release();
         
     }
 
     public void oxygen(Runnable releaseOxygen) throws InterruptedException {
         
-        o.acquire();
+        sema_o.acquire();
         // releaseOxygen.run() outputs "O". Do not change or remove this line.
 		releaseOxygen.run();
-        h.release();
-
-        try {
-            barrier.await();
-        } catch (Exception e) {
-
-        }
+        counter = 0;
+        sema_h.release(2);
     }
 }
 
